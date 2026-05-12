@@ -510,6 +510,22 @@ const TIMER_MAX = 30;
 let allStudents = {};
 let questionStats = {};
 
+
+// ── QR Code 產生器 ──
+function generateQR(el, text) {
+  const size = 160;
+  const img = document.createElement('img');
+  img.width = size;
+  img.height = size;
+  img.style.display = 'block';
+  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(text) + '&bgcolor=ffffff&color=000000&margin=1';
+  img.onerror = function() {
+    el.innerHTML = '<div style="width:160px;height:160px;background:white;display:flex;align-items:center;justify-content:center;font-size:11px;color:#333;text-align:center;padding:8px;word-break:break-all;">' + text + '</div>';
+  };
+  el.innerHTML = '';
+  el.appendChild(img);
+}
+
 // ══════════════════════════════════════════
 //  Init
 // ══════════════════════════════════════════
@@ -861,32 +877,10 @@ function resetSession() {
 // ══════════════════════════════════════════
 //  Start
 // ══════════════════════════════════════════
+
+
 init();
 </script>
 
-<script>
-// ── 純 JS QR Code 產生器（不依賴外部 CDN）──
-function generateQR(el, text) {
-  const size = 160;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  el.innerHTML = '';
-  el.appendChild(canvas);
-
-  // 用 Google Charts API 產生 QR（只需一個 img 請求）
-  const img = document.createElement('img');
-  img.width = size;
-  img.height = size;
-  img.style.display = 'block';
-  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(text) + '&bgcolor=ffffff&color=000000&margin=1';
-  img.onerror = function() {
-    // 如果 API 失敗，顯示文字替代
-    el.innerHTML = '<div style="width:160px;height:160px;background:white;display:flex;align-items:center;justify-content:center;font-size:11px;color:#333;text-align:center;padding:8px;word-break:break-all;">' + text + '</div>';
-  };
-  el.innerHTML = '';
-  el.appendChild(img);
-}
-</script>
 </body>
 </html>
