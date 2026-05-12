@@ -593,12 +593,17 @@ function submitAnswer(value) {
   // Show feedback
   showFeedback(isCorrect, q);
 
-  // If post test finished, push to Sheets
+  // 前測完成送一次，後測完成再送一次
+  if (currentPhase === 'pre') {
+    const answeredPre = QUESTIONS.pre.filter(q => myAnswers[q.id] !== undefined).length;
+    if (answeredPre === QUESTIONS.pre.length) {
+      setTimeout(() => pushToSheets('pre'), 1000);
+    }
+  }
   if (currentPhase === 'post') {
-    const postQs = QUESTIONS.post;
-    const answeredPost = postQs.filter(q => myAnswers[q.id] !== undefined).length;
-    if (answeredPost === postQs.length) {
-      setTimeout(() => pushToSheets(), 1000);
+    const answeredPost = QUESTIONS.post.filter(q => myAnswers[q.id] !== undefined).length;
+    if (answeredPost === QUESTIONS.post.length) {
+      setTimeout(() => pushToSheets('post'), 1000);
     }
   }
 }
@@ -629,19 +634,17 @@ function closeFeedbackImmediate() {
 // ══════════════════════════════════════════
 //  Push to Google Sheets via Apps Script
 // ══════════════════════════════════════════
-async function pushToSheets() {
+async function pushToSheets(stage) {
   if (!APPS_SCRIPT_URL.includes('script.google.com')) return;
 
-  const preQs = QUESTIONS.pre;
-  const postQs = QUESTIONS.post;
-
   let preScore = 0, postScore = 0;
-  preQs.forEach(q => { if(myAnswers[q.id]===q.answer) preScore++; });
-  postQs.forEach(q => { if(myAnswers[q.id]===q.answer) postScore++; });
+  QUESTIONS.pre.forEach(q => { if(myAnswers[q.id]===q.answer) preScore++; });
+  QUESTIONS.post.forEach(q => { if(myAnswers[q.id]===q.answer) postScore++; });
 
   const payload = {
     sessionId,
     name: studentName,
+    stage: stage || 'post',
     date: new Date().toLocaleDateString('zh-TW'),
     timestamp: new Date().toISOString(),
     preScore,
@@ -650,15 +653,20 @@ async function pushToSheets() {
     answers: myAnswers
   };
 
+  console.log('📤 送出資料到 Sheets:', payload);
+
   try {
-    await fetch(APPS_SCRIPT_URL, {
+    const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload)
     });
+    console.log('✅ Sheets 回應:', res.status);
   } catch(e) {
-    console.warn('Sheets 寫入失敗', e);
+    console.warn('❌ Sheets 寫入失敗:', e);
+    // 備用：用 GET 方式送
+    const url = APPS_SCRIPT_URL + '?data=' + encodeURIComponent(JSON.stringify(payload));
+    fetch(url).catch(err => console.warn('備用也失敗:', err));
   }
 }
 
