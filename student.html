@@ -634,7 +634,7 @@ function closeFeedbackImmediate() {
 // ══════════════════════════════════════════
 //  Push to Google Sheets via Apps Script
 // ══════════════════════════════════════════
-async function pushToSheets(stage) {
+function pushToSheets(stage) {
   if (!APPS_SCRIPT_URL.includes('script.google.com')) return;
 
   let preScore = 0, postScore = 0;
@@ -653,21 +653,26 @@ async function pushToSheets(stage) {
     answers: myAnswers
   };
 
-  console.log('📤 送出資料到 Sheets:', payload);
+  console.log('📤 送出資料到 Sheets:', JSON.stringify(payload));
 
-  try {
-    const res = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload)
-    });
-    console.log('✅ Sheets 回應:', res.status);
-  } catch(e) {
-    console.warn('❌ Sheets 寫入失敗:', e);
-    // 備用：用 GET 方式送
-    const url = APPS_SCRIPT_URL + '?data=' + encodeURIComponent(JSON.stringify(payload));
-    fetch(url).catch(err => console.warn('備用也失敗:', err));
-  }
+  // 用 JSONP 方式繞過 CORS
+  const callbackName = 'cb_' + Date.now();
+  const url = APPS_SCRIPT_URL + '?callback=' + callbackName + '&data=' + encodeURIComponent(JSON.stringify(payload));
+  
+  window[callbackName] = function(res) {
+    console.log('✅ Sheets 回應:', res);
+    delete window[callbackName];
+    document.body.removeChild(script);
+  };
+
+  const script = document.createElement('script');
+  script.src = url;
+  script.onerror = function() {
+    console.warn('❌ JSONP 失敗');
+    delete window[callbackName];
+    document.body.removeChild(script);
+  };
+  document.body.appendChild(script);
 }
 
 // ══════════════════════════════════════════
