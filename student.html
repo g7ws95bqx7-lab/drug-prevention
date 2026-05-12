@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>防毒菸害宣導｜答題</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--card:#1e2d45;
+  --border:#2a3a55;--dim:#3a4a65;
+  --accent:#00d4aa;--accent2:#ff6b6b;--accent3:#ffd166;
+  --correct:#06d6a0;--wrong:#ef476f;
+  --text:#e8f0fe;--muted:#6b7fa3;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{
+  height:100%;background:var(--bg);color:var(--text);
+  font-family:'Noto Sans TC',sans-serif;overflow:hidden;
+}
+
+/* ── SCREENS ── */
+.screen{
+  position:fixed;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:24px;
+  opacity:0;pointer-events:none;transition:opacity .3s;
+}
+.screen.active{opacity:1;pointer-events:all}
+
+/* ── JOIN SCREEN ── */
+.join-logo{font-size:52px;margin-bottom:16px;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.join-title{font-size:26px;font-weight:900;color:var(--text);margin-bottom:6px;text-align:center}
+.join-sub{font-size:14px;color:var(--muted);margin-bottom:32px;text-align:center;line-height:1.6}
+.input-wrap{width:100%;max-width:320px;margin-bottom:16px;position:relative}
+.name-input{
+  width:100%;padding:16px 20px;border-radius:14px;
+  background:var(--bg3);border:1.5px solid var(--dim);
+  color:var(--text);font-size:18px;font-family:inherit;
+  outline:none;transition:border-color .2s;text-align:center;
+}
+.name-input:focus{border-color:var(--accent)}
+.name-input::placeholder{color:var(--dim)}
+.join-btn{
+  width:100%;max-width:320px;padding:18px;border-radius:14px;
+  background:var(--accent);color:#000;font-size:18px;font-weight:900;
+  border:none;cursor:pointer;font-family:inherit;
+  transition:all .18s;letter-spacing:.04em;
+}
+.join-btn:hover{background:#00f0c0;transform:translateY(-2px)}
+.join-btn:active{transform:scale(.97)}
+.join-btn:disabled{opacity:.4;cursor:default;transform:none}
+.session-badge{
+  margin-top:20px;font-family:'Space Mono',monospace;
+  font-size:11px;color:var(--muted);letter-spacing:.1em;
+}
+
+/* ── WAITING SCREEN ── */
+.wait-icon{font-size:56px;margin-bottom:20px;animation:pulse-slow 2s ease-in-out infinite}
+@keyframes pulse-slow{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.wait-title{font-size:22px;font-weight:900;color:var(--text);margin-bottom:10px;text-align:center}
+.wait-name{font-size:16px;color:var(--accent);margin-bottom:8px;text-align:center}
+.wait-sub{font-size:14px;color:var(--muted);text-align:center;line-height:1.7}
+.dots-wrap{display:flex;gap:8px;margin-top:20px}
+.dot-anim{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--accent);animation:dotpulse 1.4s infinite;
+}
+.dot-anim:nth-child(2){animation-delay:.2s}
+.dot-anim:nth-child(3){animation-delay:.4s}
+@keyframes dotpulse{0%,80%,100%{transform:scale(0.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+/* ── QUIZ SCREEN ── */
+#screen-quiz{padding:0;justify-content:flex-start}
+.quiz-topbar{
+  width:100%;padding:14px 20px 10px;
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+.quiz-phase{
+  font-size:11px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;padding:3px 10px;border-radius:99px;
+}
+.phase-pre{background:rgba(255,209,102,.12);color:var(--accent3);border:1px solid rgba(255,209,102,.25)}
+.phase-post{background:rgba(0,212,170,.12);color:var(--accent);border:1px solid rgba(0,212,170,.25)}
+.quiz-progress-wrap{flex:1;margin:0 14px}
+.quiz-progress-bg{height:4px;background:var(--dim);border-radius:2px}
+.quiz-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .4s}
+.quiz-num{
+  font-family:'Space Mono',monospace;font-size:12px;
+  color:var(--muted);white-space:nowrap;
+}
+
+.quiz-body{
+  flex:1;width:100%;display:flex;flex-direction:column;
+  align-items:center;padding:20px 20px 0;overflow-y:auto;
+}
+.q-type-pill{
+  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 12px;border-radius:99px;margin-bottom:14px;align-self:flex-start;
+}
+.type-知識{background:rgba(0,212,170,.15);color:var(--accent);border:1px solid rgba(0,212,170,.25)}
+.type-情境{background:rgba(255,209,102,.12);color:var(--accent3);border:1px solid rgba(255,209,102,.25)}
+.type-法規{background:rgba(239,71,111,.12);color:var(--accent2);border:1px solid rgba(239,71,111,.25)}
+
+.q-text-box{
+  width:100%;font-size:clamp(18px,4.5vw,26px);font-weight:700;
+  line-height:1.5;color:var(--text);margin-bottom:28px;
+  min-height:80px;
+}
+
+/* Answer buttons */
+.answer-btns{width:100%;display:flex;flex-direction:column;gap:14px;padding-bottom:20px}
+.ans-btn{
+  width:100%;padding:22px 20px;border-radius:18px;
+  border:2px solid var(--dim);background:var(--bg3);
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  cursor:pointer;transition:all .18s;font-family:inherit;
+  position:relative;overflow:hidden;
+}
+.ans-btn::before{
+  content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;
+}
+.ans-btn-o::before{background:rgba(6,214,160,.08)}
+.ans-btn-x::before{background:rgba(239,71,111,.08)}
+.ans-btn:not(:disabled):active{transform:scale(.97)}
+.ans-btn:not(:disabled):hover::before{opacity:1}
+.ans-btn:not(:disabled):hover{border-color:var(--accent)}
+.ans-icon{font-size:36px;line-height:1}
+.ans-label{font-size:20px;font-weight:900;letter-spacing:.06em}
+.ans-label-o{color:var(--correct)}
+.ans-label-x{color:var(--wrong)}
+
+/* Selected states */
+.ans-btn.selected-o{
+  border-color:var(--correct);background:rgba(6,214,160,.12);
+  transform:scale(1.02);
+}
+.ans-btn.selected-x{
+  border-color:var(--wrong);background:rgba(239,71,111,.1);
+  transform:scale(1.02);
+}
+.ans-btn.dim-out{opacity:.35;transform:scale(.97);cursor:default}
+
+/* Feedback overlay */
+.feedback-wrap{
+  position:fixed;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:rgba(10,14,26,.92);backdrop-filter:blur(8px);
+  z-index:100;opacity:0;pointer-events:none;transition:opacity .25s;
+  padding:28px;text-align:center;
+}
+.feedback-wrap.show{opacity:1;pointer-events:all}
+.feedback-icon{font-size:72px;margin-bottom:16px;animation:popIn .4s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes popIn{from{transform:scale(0.5);opacity:0}to{transform:scale(1);opacity:1}}
+.feedback-result{font-size:32px;font-weight:900;margin-bottom:12px}
+.feedback-result.correct{color:var(--correct)}
+.feedback-result.wrong{color:var(--wrong)}
+.feedback-law{
+  font-size:14px;color:var(--muted);line-height:1.7;
+  max-width:320px;margin-bottom:24px;
+}
+.feedback-law strong{color:var(--accent3)}
+.next-btn{
+  padding:16px 40px;border-radius:14px;background:var(--accent);
+  color:#000;font-size:17px;font-weight:900;border:none;
+  cursor:pointer;font-family:inherit;transition:all .18s;
+  min-width:200px;
+}
+.next-btn:hover{background:#00f0c0}
+.next-btn:active{transform:scale(.97)}
+
+/* ── TEACH SCREEN ── */
+#screen-teach{
+  padding:0;justify-content:flex-start;overflow-y:auto;
+}
+.teach-topbar{
+  width:100%;padding:16px 20px;
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.teach-topbar-title{font-size:16px;font-weight:900;color:var(--accent3)}
+.teach-topbar-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.teach-body{width:100%;padding:16px 20px;display:flex;flex-direction:column;gap:14px}
+.teach-card{
+  background:var(--bg3);border:1px solid var(--dim);
+  border-radius:14px;padding:16px 18px;
+}
+.teach-card-title{font-size:14px;font-weight:700;color:var(--accent3);margin-bottom:10px}
+.teach-item{
+  display:flex;gap:10px;align-items:flex-start;
+  font-size:13px;color:var(--text);line-height:1.7;margin-bottom:8px;
+}
+.teach-item:last-child{margin-bottom:0}
+.teach-item-icon{font-size:16px;flex-shrink:0;margin-top:2px}
+.law-pill{
+  display:inline-block;font-size:10px;padding:2px 7px;border-radius:5px;
+  background:rgba(239,71,111,.15);color:var(--accent2);
+  border:1px solid rgba(239,71,111,.2);font-weight:700;margin-top:4px;
+}
+.teach-wait{
+  text-align:center;padding:24px 0;
+  font-size:14px;color:var(--muted);line-height:1.7;
+}
+
+/* ── DONE SCREEN ── */
+.done-icon{font-size:56px;margin-bottom:16px}
+.done-title{font-size:24px;font-weight:900;color:var(--accent);margin-bottom:8px;text-align:center}
+.done-name{font-size:16px;color:var(--text);margin-bottom:24px;text-align:center}
+.score-card{
+  width:100%;max-width:320px;background:var(--bg3);
+  border:1px solid var(--dim);border-radius:16px;padding:20px 24px;
+  margin-bottom:20px;
+}
+.score-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.score-row:last-child{margin-bottom:0}
+.score-label{font-size:13px;color:var(--muted)}
+.score-val{font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--text)}
+.score-val.up{color:var(--correct)}
+.score-val.down{color:var(--wrong)}
+.score-bar-wrap{width:100%;height:6px;background:var(--dim);border-radius:3px;margin-top:8px;overflow:hidden}
+.score-bar{height:100%;border-radius:3px;transition:width 1s ease;background:var(--accent)}
+.done-msg{
+  font-size:14px;color:var(--muted);text-align:center;
+  line-height:1.7;max-width:300px;
+}
+.done-msg strong{color:var(--accent)}
+
+/* ── GLOBAL ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.fade-up{animation:fadeUp .3s ease both}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ JOIN ══════════════ -->
+<div class="screen active" id="screen-join">
+  <div class="join-logo">🛡</div>
+  <div class="join-title">防毒菸害宣導</div>
+  <div class="join-sub">輸入你的暱稱加入課程<br>（可以是任何名字，只有老師看得到）</div>
+  <div class="input-wrap">
+    <input class="name-input" id="name-input" type="text"
+      placeholder="輸入暱稱" maxlength="10"
+      autocomplete="off" autocorrect="off" spellcheck="false"
+      onkeydown="if(event.key==='Enter')joinSession()">
+  </div>
+  <button class="join-btn" id="join-btn" onclick="joinSession()">加入課程 →</button>
+  <div class="session-badge" id="session-badge">等待連線中…</div>
+</div>
+
+<!-- ══════════════ WAITING ══════════════ -->
+<div class="screen" id="screen-wait">
+  <div class="wait-icon">⏳</div>
+  <div class="wait-name" id="wait-name"></div>
+  <div class="wait-title">等待老師開始</div>
+  <div class="wait-sub">老師按下開始後<br>題目就會出現囉！</div>
+  <div class="dots-wrap">
+    <div class="dot-anim"></div>
+    <div class="dot-anim"></div>
+    <div class="dot-anim"></div>
+  </div>
+</div>
+
+<!-- ══════════════ QUIZ ══════════════ -->
+<div class="screen" id="screen-quiz">
+
+  <!-- Topbar -->
+  <div class="quiz-topbar">
+    <span class="quiz-phase" id="quiz-phase-badge">前測</span>
+    <div class="quiz-progress-wrap">
+      <div class="quiz-progress-bg">
+        <div class="quiz-progress-fill" id="quiz-progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+    <span class="quiz-num" id="quiz-num">1/10</span>
+  </div>
+
+  <!-- Body -->
+  <div class="quiz-body">
+    <span class="q-type-pill" id="q-type-pill">知識</span>
+    <div class="q-text-box fade-up" id="q-text">題目載入中…</div>
+    <div class="answer-btns">
+      <button class="ans-btn ans-btn-o" id="btn-o" onclick="submitAnswer(true)">
+        <span class="ans-icon">⭕</span>
+        <span class="ans-label ans-label-o">對</span>
+      </button>
+      <button class="ans-btn ans-btn-x" id="btn-x" onclick="submitAnswer(false)">
+        <span class="ans-icon">❌</span>
+        <span class="ans-label ans-label-x">錯</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Feedback overlay -->
+  <div class="feedback-wrap" id="feedback-wrap">
+    <div class="feedback-icon" id="feedback-icon">🎉</div>
+    <div class="feedback-result" id="feedback-result">答對了！</div>
+    <div class="feedback-law" id="feedback-law"></div>
+    <button class="next-btn" id="next-btn" onclick="closeFeedback()">
+      等待老師繼續 →
+    </button>
+  </div>
+
+</div>
+
+<!-- ══════════════ TEACH ══════════════ -->
+<div class="screen" id="screen-teach">
+  <div class="teach-topbar">
+    <div class="teach-topbar-title">📚 核心知識整理</div>
+    <div class="teach-topbar-sub">老師說明中，先看看這些重點</div>
+  </div>
+  <div class="teach-body">
+
+    <div class="teach-card">
+      <div class="teach-card-title">🚬 紙菸與二手煙</div>
+      <div class="teach-item"><span class="teach-item-icon">⚗️</span><div>香菸燃燒產生超過 <strong>7,000 種化學物質</strong>，至少 <strong>93 種</strong>致癌物。</div></div>
+      <div class="teach-item"><span class="teach-item-icon">🌬️</span><div>二手煙含相同致癌物，長期暴露<strong>罹癌風險顯著提高</strong>。</div></div>
+      <div class="teach-item"><span class="teach-item-icon">🧠</span><div>尼古丁影響大腦獎勵機制，<strong>少量接觸也可能成癮</strong>，青少年尤其敏感。</div></div>
+    </div>
+
+    <div class="teach-card">
+      <div class="teach-card-title">⚡ 電子煙真相</div>
+      <div class="teach-item"><span class="teach-item-icon">🚫</span><div>台灣 <strong>2023年</strong> 起全面禁止，使用者罰 <strong>2,000–10,000元</strong>。<span class="law-pill">菸害防制法第15條</span></div></div>
+      <div class="teach-item"><span class="teach-item-icon">☁️</span><div>加熱產生的<strong>不是水蒸氣</strong>，而是甲醛等有毒氣體。</div></div>
+      <div class="teach-item"><span class="teach-item-icon">🎯</span><div>水果口味是行銷策略，讓你覺得安全，<strong>實際上一樣傷身</strong>。</div></div>
+    </div>
+
+    <div class="teach-card">
+      <div class="teach-card-title">☠️ 依托咪酯（喪屍毒品）</div>
+      <div class="teach-item"><span class="teach-item-icon">🔴</span><div><strong>2024年11月</strong> 升為<strong>第二級毒品</strong>，施用即屬刑事犯罪。<span class="law-pill">毒品危害防制條例</span></div></div>
+      <div class="teach-item"><span class="teach-item-icon">👁️</span><div><strong>無色無味</strong>，混入飲料或煙油，外觀完全看不出來。</div></div>
+      <div class="teach-item"><span class="teach-item-icon">🧟</span><div>吸食後肌肉抽動、意識混亂、無法站立，俗稱「上頭」。</div></div>
+    </div>
+
+    <div class="teach-card">
+      <div class="teach-card-title">⚖️ 法律責任</div>
+      <div class="teach-item"><span class="teach-item-icon">🔞</span><div><strong>未滿20歲吸菸</strong>：須接受戒菸教育，拒不接受罰 2,000–10,000元。<span class="law-pill">菸害防制法第42條</span></div></div>
+      <div class="teach-item"><span class="teach-item-icon">🏛️</span><div><strong>少年施用一、二級毒品</strong>：移送少年法院，可裁定感化教育。<span class="law-pill">少年事件處理法第42條</span></div></div>
+    </div>
+
+    <div class="teach-wait">老師說明完畢後<br>後測就會自動開始 🙌</div>
+
+  </div>
+</div>
+
+<!-- ══════════════ DONE ══════════════ -->
+<div class="screen" id="screen-done">
+  <div class="done-icon">🏆</div>
+  <div class="done-title">完成！</div>
+  <div class="done-name" id="done-name"></div>
+  <div class="score-card">
+    <div class="score-row">
+      <span class="score-label">前測成績</span>
+      <span class="score-val" id="done-pre">—</span>
+    </div>
+    <div class="score-row">
+      <span class="score-label">後測成績</span>
+      <span class="score-val" id="done-post">—</span>
+    </div>
+    <div class="score-row">
+      <span class="score-label">進步幅度</span>
+      <span class="score-val" id="done-delta">—</span>
+    </div>
+    <div class="score-bar-wrap">
+      <div class="score-bar" id="done-bar" style="width:0%"></div>
+    </div>
+  </div>
+  <div class="done-msg" id="done-msg">紀錄已儲存，謝謝你的參與！</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  Firebase 設定 ← 與老師端相同，填入你的設定
+// ══════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCyqURKP6ynT0V0FgxXiJk7XQZEVg9VD5A",
+  authDomain: "open-8c11e.firebaseapp.com",
+  databaseURL: "https://open-8c11e-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "open-8c11e",
+  storageBucket: "open-8c11e.firebasestorage.app",
+  messagingSenderId: "973879147825",
+  appId: "1:973879147825:web:153ed3adf8648e2adf8410"
+};
+
+// Google Apps Script Web App URL ← Step 2 完成後填入
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby8RZJEFWn2FM0ahspyzhv71wrmhV7ZnZCVRbNcECTnjhoUolLmw2btCZ3qNJMVQ_Jy/exec";
+
+// ══════════════════════════════════════════
+//  題目資料（與老師端完全一致）
+// ══════════════════════════════════════════
+const QUESTIONS = {
+  pre: [
+    { id:'pre1', type:'知識', text:'電子煙沒有燃燒，所以對身體沒有害。', answer:false, law:'電子煙加熱產生甲醛等有毒氣體，台灣已全面禁止使用。' },
+    { id:'pre2', type:'知識', text:'依托咪酯是一種合法的提神飲料成分。', answer:false, law:'依托咪酯已於2024年11月升為<strong>第二級毒品</strong>，完全違法。' },
+    { id:'pre3', type:'知識', text:'長期吸到二手煙，對身體沒什麼影響。', answer:false, law:'二手煙含至少93種致癌物，長期暴露罹癌風險顯著提高。' },
+    { id:'pre4', type:'知識', text:'香菸裡面只有尼古丁一種有害物質。', answer:false, law:'香菸燃燒產生超過7,000種化學物質，有害物質不只尼古丁。' },
+    { id:'pre5', type:'知識', text:'依托咪酯常被加入電子煙煙油裡流通販售。', answer:true, law:'俗稱「喪屍煙彈」「上頭電子煙」，混入煙油中販售，2024年暴增132倍。' },
+    { id:'pre6', type:'情境', text:'朋友說「只試一口不會上癮」，這句話是對的。', answer:false, law:'成癮性與使用頻率無絕對關係，青少年大腦更敏感，一次接觸不代表安全。' },
+    { id:'pre7', type:'情境', text:'在台灣使用電子煙，不違法，只是不健康。', answer:false, law:'菸害防制法第15條：使用電子煙可處<strong>2,000至10,000元</strong>罰鍰，完全違法。' },
+    { id:'pre8', type:'情境', text:'未滿20歲吸菸被抓，只有爸媽會被罰，自己完全沒事。', answer:false, law:'菸害防制法第42條：本人須先接受戒菸教育，拒不接受才罰父母。' },
+    { id:'pre9', type:'情境', text:'朋友給你一罐飲料說「喝了會放鬆」，從外觀就能判斷有沒有問題。', answer:false, law:'依托咪酯無色無味，混入飲料後外觀完全無法辨識。' },
+    { id:'pre10', type:'情境', text:'依托咪酯讓人「放鬆」的感覺，其實是大腦被麻醉的反應。', answer:true, law:'依托咪酯為超短效靜脈麻醉藥物，「放鬆感」即為麻醉反應，非正常狀態。' },
+  ],
+  post: [
+    { id:'post1', type:'知識', text:'電子煙加熱後只會產生水蒸氣，不含有毒物質。', answer:false, law:'電子煙加熱產生甲醛、丙烯醛等有毒氣體，「只有水蒸氣」是錯誤說法。' },
+    { id:'post2', type:'知識', text:'依托咪酯在台灣目前被列為第二級毒品。', answer:true, law:'法務部2024年11月審議通過，從三級<strong>升為第二級毒品</strong>，施用即屬刑事犯罪。' },
+    { id:'post3', type:'知識', text:'長期暴露在二手煙環境中，得肺癌的風險和不吸菸的人一樣。', answer:false, law:'二手煙含相同致癌物，長期暴露者罹癌風險顯著高於不吸菸者。' },
+    { id:'post4', type:'知識', text:'香菸燃燒後會產生超過7,000種化學物質，其中至少93種是致癌物。', answer:true, law:'WHO與衛福部確認數據，包括苯、甲醛、砷等93種已知致癌物。' },
+    { id:'post5', type:'知識', text:'依托咪酯被列為第二級毒品後，少年施用也屬於刑事犯罪，不只是行政罰鍰。', answer:true, law:'毒品危害防制條例：二級毒品施用入刑，少年將被移送少年法院處理。' },
+    { id:'post6', type:'情境', text:'只要不是每天抽，尼古丁就不會讓人產生依賴。', answer:false, law:'尼古丁成癮性與頻率無絕對關係，青少年少量接觸也可能成癮。' },
+    { id:'post7', type:'法規', text:'少年施用第一、二級毒品，少年法院可以裁定送感化教育。', answer:true, law:'少年事件處理法第42條：保護處分包括訓誡、保護管束、安置輔導及感化教育。' },
+    { id:'post8', type:'法規', text:'少年施用毒品若已成癮，法院可以裁定令入相當處所實施禁戒。', answer:true, law:'少年事件處理法第42條第2項：成癮少年得裁定令入相當處所實施禁戒。' },
+    { id:'post9', type:'法規', text:'大人提供毒品給未成年人，依毒品危害防制條例刑責會加重。', answer:true, law:'販賣、轉讓毒品予未成年人刑責加重，販賣第二級毒品最重可處<strong>無期徒刑</strong>。' },
+    { id:'post10', type:'法規', text:'未滿20歲在台灣使用電子煙，只要不被人看到就不會被罰。', answer:false, law:'菸害防制法不限取締場所，公私領域均可被檢舉，任何人可撥0800-531531舉報。' },
+  ]
+};
+
+// ══════════════════════════════════════════
+//  State
+// ══════════════════════════════════════════
+let db, sessionId, studentName;
+let currentPhase = null;
+let currentQId = null;
+let myAnswers = {};   // { qId: true/false }
+let hasAnswered = false;
+let metaRef;
+
+// ══════════════════════════════════════════
+//  Init — 從 URL 取得 Session ID
+// ══════════════════════════════════════════
+(function initApp() {
+  const params = new URLSearchParams(location.search);
+  sessionId = params.get('session');
+  if (!sessionId) {
+    document.getElementById('session-badge').textContent = '找不到 Session，請重新掃描 QR Code';
+    document.getElementById('join-btn').disabled = true;
+    return;
+  }
+  document.getElementById('session-badge').textContent = 'SESSION: ' + sessionId;
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db = firebase.database();
+})();
+
+// ══════════════════════════════════════════
+//  Join
+// ══════════════════════════════════════════
+function joinSession() {
+  const input = document.getElementById('name-input');
+  const name = input.value.trim();
+  if (!name) { input.focus(); return; }
+  if (!sessionId) return;
+
+  studentName = name;
+  document.getElementById('join-btn').disabled = true;
+
+  // 寫入學生資料
+  const studentRef = db.ref(`sessions/${sessionId}/students/${name}`);
+  studentRef.set({ joinedAt: Date.now(), answers: {} });
+
+  document.getElementById('wait-name').textContent = '👋 ' + name + '，等待中…';
+  showScreen('wait');
+
+  // 監聽老師端的狀態
+  metaRef = db.ref(`sessions/${sessionId}/meta`);
+  metaRef.on('value', snap => {
+    const meta = snap.val();
+    if (!meta) return;
+    handleMeta(meta);
+  });
+}
+
+// ══════════════════════════════════════════
+//  Meta Handler — 跟隨老師端狀態
+// ══════════════════════════════════════════
+function handleMeta(meta) {
+  const { phase, currentQ, qIndex } = meta;
+
+  if (phase === 'waiting') {
+    showScreen('wait');
+    return;
+  }
+
+  if (phase === 'teach') {
+    showScreen('teach');
+    return;
+  }
+
+  if (phase === 'results') {
+    showDone();
+    return;
+  }
+
+  // pre or post — quiz mode
+  if (phase === 'pre' || phase === 'post') {
+    currentPhase = phase;
+
+    if (currentQ !== currentQId) {
+      currentQId = currentQ;
+      hasAnswered = false;
+      renderQuestion(phase, currentQ, qIndex);
+      showScreen('quiz');
+      closeFeedbackImmediate();
+    }
+  }
+}
+
+// ══════════════════════════════════════════
+//  Render Question
+// ══════════════════════════════════════════
+function renderQuestion(phase, qId, qIndex) {
+  const qs = QUESTIONS[phase];
+  const q = qs.find(q => q.id === qId);
+  if (!q) return;
+
+  document.getElementById('quiz-phase-badge').textContent = phase === 'pre' ? '前測' : '後測';
+  document.getElementById('quiz-phase-badge').className = 'quiz-phase ' + (phase==='pre' ? 'phase-pre' : 'phase-post');
+
+  // Progress
+  const total = QUESTIONS[phase].length;
+  const idx = (qIndex !== undefined ? qIndex : qs.indexOf(q));
+  document.getElementById('quiz-progress-fill').style.width = ((idx+1)/total*100) + '%';
+  document.getElementById('quiz-num').textContent = (idx+1) + '/' + total;
+
+  document.getElementById('q-type-pill').textContent = q.type;
+  document.getElementById('q-type-pill').className = 'q-type-pill type-' + q.type;
+  document.getElementById('q-text').textContent = q.text;
+
+  // Reset buttons
+  const btnO = document.getElementById('btn-o');
+  const btnX = document.getElementById('btn-x');
+  btnO.className = 'ans-btn ans-btn-o';
+  btnX.className = 'ans-btn ans-btn-x';
+  btnO.disabled = false;
+  btnX.disabled = false;
+
+  // Already answered this question?
+  if (myAnswers[qId] !== undefined) {
+    const myAns = myAnswers[qId];
+    if (myAns) {
+      btnO.className = 'ans-btn ans-btn-o selected-o';
+      btnX.className = 'ans-btn ans-btn-x dim-out';
+    } else {
+      btnX.className = 'ans-btn ans-btn-x selected-x';
+      btnO.className = 'ans-btn ans-btn-o dim-out';
+    }
+    btnO.disabled = true;
+    btnX.disabled = true;
+  }
+}
+
+// ══════════════════════════════════════════
+//  Submit Answer
+// ══════════════════════════════════════════
+function submitAnswer(value) {
+  if (hasAnswered || !currentQId || !currentPhase) return;
+  hasAnswered = true;
+  myAnswers[currentQId] = value;
+
+  const q = QUESTIONS[currentPhase].find(q => q.id === currentQId);
+  if (!q) return;
+
+  // Visual feedback on buttons
+  const btnO = document.getElementById('btn-o');
+  const btnX = document.getElementById('btn-x');
+  btnO.disabled = true;
+  btnX.disabled = true;
+  if (value) {
+    btnO.className = 'ans-btn ans-btn-o selected-o';
+    btnX.className = 'ans-btn ans-btn-x dim-out';
+  } else {
+    btnX.className = 'ans-btn ans-btn-x selected-x';
+    btnO.className = 'ans-btn ans-btn-o dim-out';
+  }
+
+  // Write to Firebase
+  const isCorrect = value === q.answer;
+  db.ref(`sessions/${sessionId}/students/${studentName}/answers/${currentQId}`).set(value);
+  // Aggregate stats
+  db.ref(`sessions/${sessionId}/stats/${currentQId}/${value}`).transaction(v => (v||0)+1);
+
+  // Show feedback
+  showFeedback(isCorrect, q);
+
+  // If post test finished, push to Sheets
+  if (currentPhase === 'post') {
+    const postQs = QUESTIONS.post;
+    const answeredPost = postQs.filter(q => myAnswers[q.id] !== undefined).length;
+    if (answeredPost === postQs.length) {
+      setTimeout(() => pushToSheets(), 1000);
+    }
+  }
+}
+
+// ══════════════════════════════════════════
+//  Feedback Overlay
+// ══════════════════════════════════════════
+function showFeedback(isCorrect, q) {
+  document.getElementById('feedback-icon').textContent = isCorrect ? '🎉' : '😅';
+  const result = document.getElementById('feedback-result');
+  result.textContent = isCorrect ? '答對了！' : '答錯了！';
+  result.className = 'feedback-result ' + (isCorrect ? 'correct' : 'wrong');
+  document.getElementById('feedback-law').innerHTML = '📌 ' + q.law;
+  document.getElementById('feedback-wrap').classList.add('show');
+}
+
+function closeFeedback() {
+  document.getElementById('feedback-wrap').classList.remove('show');
+}
+
+function closeFeedbackImmediate() {
+  const el = document.getElementById('feedback-wrap');
+  el.style.transition = 'none';
+  el.classList.remove('show');
+  setTimeout(() => { el.style.transition = ''; }, 50);
+}
+
+// ══════════════════════════════════════════
+//  Push to Google Sheets via Apps Script
+// ══════════════════════════════════════════
+async function pushToSheets() {
+  if (!APPS_SCRIPT_URL.includes('script.google.com')) return;
+
+  const preQs = QUESTIONS.pre;
+  const postQs = QUESTIONS.post;
+
+  let preScore = 0, postScore = 0;
+  preQs.forEach(q => { if(myAnswers[q.id]===q.answer) preScore++; });
+  postQs.forEach(q => { if(myAnswers[q.id]===q.answer) postScore++; });
+
+  const payload = {
+    sessionId,
+    name: studentName,
+    date: new Date().toLocaleDateString('zh-TW'),
+    timestamp: new Date().toISOString(),
+    preScore,
+    postScore,
+    delta: postScore - preScore,
+    answers: myAnswers
+  };
+
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch(e) {
+    console.warn('Sheets 寫入失敗', e);
+  }
+}
+
+// ══════════════════════════════════════════
+//  Done Screen
+// ══════════════════════════════════════════
+function showDone() {
+  const allQs = [...QUESTIONS.pre, ...QUESTIONS.post];
+  let preScore = 0, postScore = 0;
+  QUESTIONS.pre.forEach(q => { if(myAnswers[q.id]===q.answer) preScore++; });
+  QUESTIONS.post.forEach(q => { if(myAnswers[q.id]===q.answer) postScore++; });
+  const delta = postScore - preScore;
+
+  document.getElementById('done-name').textContent = studentName + '，你完成了！';
+  document.getElementById('done-pre').textContent = preScore + '/10';
+  document.getElementById('done-post').textContent = postScore + '/10';
+
+  const deltaEl = document.getElementById('done-delta');
+  deltaEl.textContent = (delta >= 0 ? '+' : '') + delta;
+  deltaEl.className = 'score-val ' + (delta > 0 ? 'up' : delta < 0 ? 'down' : '');
+
+  setTimeout(() => {
+    document.getElementById('done-bar').style.width = (postScore/10*100) + '%';
+  }, 300);
+
+  const msgs = [
+    ['10', '🔥 滿分！你已經是防毒知識小達人了！'],
+    ['8',  '💪 答對 8 題以上，表現很棒！'],
+    ['6',  '👍 過半答對，繼續保持警覺！'],
+    ['0',  '📚 多了解這些知識，保護自己最重要。'],
+  ];
+  const msg = msgs.find(([min]) => postScore >= parseInt(min));
+  document.getElementById('done-msg').innerHTML =
+    `<strong>${msg[1]}</strong><br><br>紀錄已儲存，謝謝你的參與！`;
+
+  showScreen('done');
+}
+
+// ══════════════════════════════════════════
+//  Screen Switch
+// ══════════════════════════════════════════
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+</script>
+</body>
+</html>
