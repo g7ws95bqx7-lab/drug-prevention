@@ -448,24 +448,33 @@ let metaRef;
 //  Join
 // ══════════════════════════════════════════
 function joinSession() {
-  const input = document.getElementById('name-input');
+  const input = document.getElementById("name-input");
   const name = input.value.trim();
   if (!name) { input.focus(); return; }
-  if (!sessionId) return;
+  if (!sessionId) { alert("找不到Session，請重新掃描QR Code"); return; }
+  if (!db) { alert("Firebase未初始化，請重新整理"); return; }
 
   studentName = name;
-  document.getElementById('join-btn').disabled = true;
+  document.getElementById("join-btn").disabled = true;
+  document.getElementById("session-badge").textContent = "連線中…";
 
-  // 寫入學生資料
-  const studentRef = db.ref(`sessions/${sessionId}/students/${name}`);
-  studentRef.set({ joinedAt: Date.now(), answers: {} });
+  const studentRef = db.ref("sessions/" + sessionId + "/students/" + name);
+  studentRef.set({ joinedAt: Date.now(), answers: {} })
+    .then(() => {
+      console.log("✅ 寫入成功");
+      document.getElementById("session-badge").textContent = "已連線 ✅";
+    })
+    .catch(err => {
+      console.error("❌ 寫入失敗:", err.message);
+      document.getElementById("session-badge").textContent = "❌ " + err.message;
+      document.getElementById("join-btn").disabled = false;
+    });
 
-  document.getElementById('wait-name').textContent = '👋 ' + name + '，等待中…';
-  showScreen('wait');
+  document.getElementById("wait-name").textContent = "👋 " + name + "，等待中…";
+  showScreen("wait");
 
-  // 監聽老師端的狀態
-  metaRef = db.ref(`sessions/${sessionId}/meta`);
-  metaRef.on('value', snap => {
+  metaRef = db.ref("sessions/" + sessionId + "/meta");
+  metaRef.on("value", snap => {
     const meta = snap.val();
     if (!meta) return;
     handleMeta(meta);
